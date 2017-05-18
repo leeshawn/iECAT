@@ -1,0 +1,15 @@
+
+# functions
+export(iECAT, iECAT_SingleVar, iECAT_SingleVar_Tbl)
+export(Open_SSD_wEC,Generate_SSD_SetID_wEC, Close_SSD_wEC)
+export(iECAT.SSD.OneSet_SetIndex,iECAT.SSD.All)
+
+importFrom("stats", "dbeta")
+importFrom("utils", "read.delim", "read.table", "write.table")
+importFrom("MetaSKAT", "MetaSKAT_wZ")
+importFrom("SKAT", "SKAT")
+importFrom("SKAT", "SKAT_Null_Model")
+importFrom("graphics", "abline")
+importFrom("stats", "binomial", "cor", "fisher.test", "glm", "lm",
+             "model.frame", "model.matrix", "na.pass", "pchisq",
+             "qqplot", "sd")

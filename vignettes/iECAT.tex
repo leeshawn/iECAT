@@ -1,0 +1,207 @@
+%\VignetteIndexEntry{iECAT}
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amscd}
+\usepackage[tableposition=top]{caption}
+\usepackage{ifthen}
+\usepackage[utf8]{inputenc}
+
+\usepackage{Sweave}
+\begin{document}
+
+\title{iECAT Package}
+\author{Seunggeun (Shawn) Lee}
+\maketitle
+
+\section{Overview}
+iECAT package has functions to test for associations between sets of variants and phenotypes with integrating external control samples. 
+The main function, iECAT, is similar to the SKAT function in the SKAT package but needs addition information on allele counts of the external control samples. 
+To use this package, SKAT and MetaSKAT packages should be installed. 
+
+\section{Association test}
+
+\subsection{Example}
+An example dataset (Example) has a list of ten genotype matrices (Z.list), a vector of binary phenotype (Y), a list of tables for external control samples. 
+
+\begin{Schunk}
+\begin{Sinput}
+> library(SKAT)
+> library(iECAT)
+> data(Example)
+> attach(Example)
+\end{Sinput}
+\end{Schunk}
+
+As the same as the SKAT function, the SKAT\_Null\_Model function (in SKAT package) should be used in prior to carry out association tests. 
+SKAT\_Null\_Model estimates parameters under the null model and obtain residuals. The following code performs iECAT-O, SKAT-O version of iECAT, 
+with incorporating allele count information in tbl.external.all.list. 
+
+\begin{Schunk}
+\begin{Sinput}
+> # iECAT-O
+> # test the first gene
+> 
+> obj<-SKAT_Null_Model(Y ~ 1, out_type="D")
+> Z = Z.list[[1]]
+> tbl.external.all = tbl.external.all.list[[1]]
+> out<-iECAT(Z, obj, tbl.external.all, method="optimal")
+> #iECAT-O pvalue
+> out$p.value
+\end{Sinput}
+\begin{Soutput}
+[1] 1.392048e-10
+\end{Soutput}
+\begin{Sinput}
+> # p-value without batch-effect adjustment 
+> out$p.value.noadj
+\end{Sinput}
+\begin{Soutput}
+[1] 3.575066e-12
+\end{Soutput}
+\begin{Sinput}
+> # p-value computed without using external control samples. SKAT-O is used to compute this p-value. 
+> out$p.value.internal
+\end{Sinput}
+\begin{Soutput}
+[1] 3.064378e-06
+\end{Soutput}
+\begin{Sinput}
+> 
+\end{Sinput}
+\end{Schunk}
+
+To run SKAT type dispersion test (rho = 0) or Burden type collapsing test (rho=1), you need to specify r.corr=0 or r.corr=1.
+
+\begin{Schunk}
+\begin{Sinput}
+> # rho=0
+> iECAT(Z, obj, tbl.external.all, r.corr=0)$p.value
+\end{Sinput}
+\begin{Soutput}
+[1] 5.222802e-08
+\end{Soutput}
+\begin{Sinput}
+> # rho=1
+> iECAT(Z, obj, tbl.external.all, r.corr=1)$p.value
+\end{Sinput}
+\begin{Soutput}
+[1] 1.859556e-08
+\end{Soutput}
+\begin{Sinput}
+> 
+\end{Sinput}
+\end{Schunk}
+
+As the same as in the SKAT function, the weights.beta parameter  can be changed. Users can also specify their custom weights (weight). 
+Users can also specify the upper limit of MAFs. For example, if users want to test for associations with variants with MAF $< 0.01$, 
+MAF.limit should be $0.01$
+\begin{Schunk}
+\begin{Sinput}
+> # test for rare variants only
+> iECAT(Z, obj, tbl.external.all, MAF.limit=0.01)$p.value
+\end{Sinput}
+\begin{Soutput}
+[1] 3.557148e-27
+\end{Soutput}
+\end{Schunk}
+
+
+\subsection{Plink Binary format files}
+
+iECAT package can use plink binary format files for genome-wide data analysis. 
+To use plink files, users should provide plink binary files (bed, bim, fam); setid file which has set ids and variant list of each set; and external control allele count file (EC file), which has 
+allele counts of each variants in external control samples. 
+The EC file should have six columns: 
+Chromosome, base-pair position, SNP_ID, Allele1, Allele2, Allele1 count, Allele 2 count. It should not have header. Below is the example: 
+
+\begin{center}
+\begin{tabular}{ccccccc}		
+  1 &10001 &snp_10001 &A &T &39 &19961\\
+1 &10002 &snp_10002 &G &T &27 &19973 \\
+\vdots & \vdots &\vdots &\vdots &\vdots &\vdots &\vdots 
+\end{tabular}
+\end{center}
+
+Example files can be found on the SKAT/MetaSKAT google group page.
+
+\begin{Schunk}
+\begin{Sinput}
+> # To run this code, first download and unzip example files
+> 
+> ##############################################
+> # 	Generate SSD file
+> 
+> # Create the MW File
+> 
+> 
+> File.Bed<-"./iECAT.example.bed"
+> File.Bim<-"./iECAT.example.bim"
+> File.Fam<-"./iECAT.example.fam"
+> File.EC<-"./iECAT.example.EC"
+> File.SetID<-"./iECAT.example.SetID"
+> File.SSD<-"./iECAT.SSD"
+> File.Info<-"./iECAT.SSD.INFO"
+> File.EC.Info<-"./iECAT.SSD.ECINFO"
+> FAM<-Read_Plink_FAM(File.Fam, Is.binary=TRUE)
+> Generate_SSD_SetID_wEC(File.Bed, File.Bim, File.Fam, File.SetID, File.EC, File.SSD, File.Info, File.EC.Info)
+\end{Sinput}
+\begin{Soutput}
+431 SNPs observed in both SetID (and BIM) and EC files
+431 After checking alleles, 431  SNPs left
+
+Check duplicated SNPs in each SNP set
+No duplicate
+10000 Samples, 10 Sets, 431 Total SNPs
+[1] "SSD and Info files are created!"
+\end{Soutput}
+\begin{Sinput}
+> EC.INFO= Open_SSD_wEC(File.SSD, File.Info, File.EC.Info)
+\end{Sinput}
+\begin{Soutput}
+10000 Samples, 10 Sets, 431 Total SNPs
+Open the SSD file
+\end{Soutput}
+\begin{Sinput}
+> obj<-SKAT_Null_Model(Phenotype ~ 1, out_type="D", data=FAM)
+> re<-iECAT.SSD.All(EC.INFO, obj=obj, method="optimal")
+> re
+\end{Sinput}
+\begin{Soutput}
+$results
+      SetID      P.value P.value.Noadj P.value.Internal N.Marker.All
+1  SET_0001 1.392048e-10  3.575066e-12     3.064378e-06           53
+2  SET_0002 8.051239e-35  2.462946e-40     2.321727e-20           40
+3  SET_0003 6.842589e-03  2.590867e-03     2.427129e-03           38
+4  SET_0004 5.549530e-11  1.310897e-11     2.108542e-07           43
+5  SET_0005 4.294304e-20  1.988825e-23     1.981221e-13           53
+6  SET_0006 3.859261e-05  2.998408e-05     1.138320e-02           42
+7  SET_0007 1.845882e-16  6.183193e-28     1.780371e-10           48
+8  SET_0008 6.298242e-03  6.099854e-03     3.917145e-02           43
+9  SET_0009 1.127014e-18  3.363407e-30     1.366303e-12           41
+10 SET_0010 2.248983e-04  2.033899e-05     5.021656e-03           30
+   N.Marker.Test
+1             53
+2             40
+3             38
+4             43
+5             53
+6             42
+7             48
+8             43
+9             41
+10            30
+
+$P.value.Resampling
+NULL
+
+attr(,"class")
+[1] "SKAT_SSD_ALL"
+\end{Soutput}
+\begin{Sinput}
+> 
+\end{Sinput}
+\end{Schunk}
+
+\end{document}
+

@@ -1,0 +1,133 @@
+%\VignetteIndexEntry{iECAT}
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amscd}
+\usepackage[tableposition=top]{caption}
+\usepackage{ifthen}
+\usepackage[utf8]{inputenc}
+
+\begin{document}
+
+\title{iECAT Package}
+\author{Seunggeun (Shawn) Lee}
+\maketitle
+
+\section{Overview}
+iECAT package has functions to test for associations between sets of variants and phenotypes with integrating external control samples. 
+The main function, iECAT, is similar to the SKAT function in the SKAT package but needs addition information on allele counts of the external control samples. 
+To use this package, SKAT and MetaSKAT packages should be installed. 
+
+\section{Association test}
+
+\subsection{Example}
+An example dataset (Example) has a list of ten genotype matrices (Z.list), a vector of binary phenotype (Y), a list of tables for external control samples. 
+
+<<data>>=
+library(SKAT)
+library(iECAT)
+data(Example)
+attach(Example)
+@
+
+As the same as the SKAT function, the SKAT\_Null\_Model function (in SKAT package) should be used in prior to carry out association tests. 
+SKAT\_Null\_Model estimates parameters under the null model and obtain residuals. The following code performs iECAT-O, SKAT-O version of iECAT, 
+with incorporating allele count information in tbl.external.all.list. 
+
+<<iECAT1>>=
+
+# iECAT-O
+# test the first gene
+
+obj<-SKAT_Null_Model(Y ~ 1, out_type="D")
+Z = Z.list[[1]]
+tbl.external.all = tbl.external.all.list[[1]]
+
+out<-iECAT(Z, obj, tbl.external.all, method="optimal")
+
+#iECAT-O pvalue
+out$p.value
+
+# p-value without batch-effect adjustment 
+out$p.value.noadj
+
+# p-value computed without using external control samples. SKAT-O is used to compute this p-value. 
+out$p.value.internal
+
+@
+
+To run SKAT type dispersion test (rho = 0) or Burden type collapsing test (rho=1), you need to specify r.corr=0 or r.corr=1.
+
+<<iECAT11>>=
+
+# rho=0
+iECAT(Z, obj, tbl.external.all, r.corr=0)$p.value
+
+# rho=1
+iECAT(Z, obj, tbl.external.all, r.corr=1)$p.value
+
+@
+
+As the same as in the SKAT function, the weights.beta parameter  can be changed. Users can also specify their custom weights (weight). 
+Users can also specify the upper limit of MAFs. For example, if users want to test for associations with variants with MAF $< 0.01$, 
+MAF.limit should be $0.01$
+<<iECAT12>>=
+
+# test for rare variants only
+iECAT(Z, obj, tbl.external.all, MAF.limit=0.01)$p.value
+@
+
+
+\subsection{Plink Binary format files}
+
+iECAT package can use plink binary format files for genome-wide data analysis. 
+To use plink files, users should provide plink binary files (bed, bim, fam); setid file which has set ids and variant list of each set; and external control allele count file (EC file), which has 
+allele counts of each variants in external control samples. 
+The EC file should have six columns: 
+Chromosome, base-pair position, SNP\_ID, Allele1, Allele2, Allele1 count, Allele 2 count. It should not have header. Below is the example: 
+
+\begin{center}
+\begin{tabular}{ccccccc}		
+  1 &10001 &snp\_10001 &A &T &39 &19961\\
+1 &10002 &snp\_10002 &G &T &27 &19973 \\
+\vdots & \vdots &\vdots &\vdots &\vdots &\vdots &\vdots 
+\end{tabular}
+\end{center}
+
+Example files can be found at https://sites.google.com/a/umich.edu/leeshawn/software. 
+
+<<iECAT_B1>>=
+# To run this code, first download and unzip example files
+
+##############################################
+# 	Generate SSD file
+
+# Create the MW File
+
+
+File.Bed<-"./iECAT.example.bed"
+File.Bim<-"./iECAT.example.bim"
+File.Fam<-"./iECAT.example.fam"
+File.EC<-"./iECAT.example.EC"
+File.SetID<-"./iECAT.example.SetID"
+
+File.SSD<-"./iECAT.SSD"
+File.Info<-"./iECAT.SSD.INFO"
+File.EC.Info<-"./iECAT.SSD.ECINFO"
+
+FAM<-Read_Plink_FAM(File.Fam, Is.binary=TRUE)
+
+# 5 SNP sets in the example in the vignette
+Generate_SSD_SetID_wEC(File.Bed, File.Bim, File.Fam, File.SetID, File.EC, File.SSD, File.Info, File.EC.Info)
+EC.INFO= Open_SSD_wEC(File.SSD, File.Info, File.EC.Info)
+
+obj<-SKAT_Null_Model(Phenotype ~ 1, out_type="D", data=FAM)
+
+
+re<-iECAT.SSD.All(EC.INFO, obj=obj, method="optimal")
+re
+
+@
+
+\end{document}
+
