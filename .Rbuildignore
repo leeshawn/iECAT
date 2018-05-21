@@ -1,0 +1,11 @@
+.DS_Store
+.git
+.gitignore
+.*~$
+.pversion
+temp
+test
+R_backup
+Xcode
+README.md
+etc

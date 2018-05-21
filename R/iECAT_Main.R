@@ -37,10 +37,10 @@ iECAT_Genotype_Check<-function(Z, obj.res, tbl.external.all, impute.method = "be
     
     if (length(ID_INCLUDE_SNP) == 0) {
         if (is.null(SetID)) {
-            msg <- sprintf("ALL SNPs have either high missing rates or no-variation. P-value=1")
+            msg <- sprintf("ALL SNPs have either low MAC, high missing rates or no-variation. P-value=1")
         }
         else {
-            msg <- sprintf("In %s, ALL SNPs have either high missing rates or no-variation. P-value=1", 
+            msg <- sprintf("In %s, ALL SNPs have either low MAC, high missing rates or no-variation. P-value=1", 
                 SetID)
         }
         warning(msg, call. = FALSE)
@@ -48,10 +48,10 @@ iECAT_Genotype_Check<-function(Z, obj.res, tbl.external.all, impute.method = "be
         return(re)
     } else if (m - length(ID_INCLUDE_SNP) > 0) {
         if (is.null(SetID)) {
-            msg <- sprintf("%d SNPs with either high missing rates or no-variation are excluded!", m - length(ID_INCLUDE_SNP))
+            msg <- sprintf("%d SNPs with either low MAC, high missing rates or no-variation are excluded!", m - length(ID_INCLUDE_SNP))
         }
         else {
-            msg <- sprintf("In %s, %d SNPs with either high missing rates or no-variation are excluded!", SetID, m - length(ID_INCLUDE_SNP))
+            msg <- sprintf("In %s, %d SNPs with either low MAC, high missing rates or no-variation are excluded!", SetID, m - length(ID_INCLUDE_SNP))
         }
         warning(msg, call. = FALSE)
     }
@@ -60,8 +60,6 @@ iECAT_Genotype_Check<-function(Z, obj.res, tbl.external.all, impute.method = "be
 	out.z<-list();
 	
 
-	
-	
 	out.z$ID_INCLUDE_SNP=ID_INCLUDE_SNP
 	out.z$param<-list(n.marker=m, n.marker.test =length(ID_INCLUDE_SNP))
 	out.z$Z1=Z1

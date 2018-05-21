@@ -178,10 +178,10 @@ iECAT.SSD.OneSet_SetIndex = function(EC.INFO, SetIndex,  obj, ..., obj.SNPWeight
 	tbl.external.all = re1$EC_COUNT
 	# need to check later
 	Z<-re1$Z
+	Z[Z==9]<-NA
 	Z<-2-Z
 	
 	# change the coding scheme to the minor allele coding
-	Z[Z==9]<-NA
 	MAF = colMeans(Z, na.rm=TRUE)/2
 	idx.flip<-which(MAF > 0.5)
 	if(length(idx.flip) > 0){

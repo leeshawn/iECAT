@@ -1,8 +1,8 @@
 Package: iECAT
 Type: Package 
 Title: Integrating External Controls into Association Test
-Version: 0.8
-Date: 2017-05-10
+Version: 0.8.1
+Date: 2018-05-21
 Author: Seunggeun (Shawn) Lee
 Maintainer: Seunggeun (Shawn) Lee <leeshawn@umich.edu>  
 Description: Functions for single-variant and region-based tests with external control samples. These methods use external study samples as control samples with adjusting for possible batch effects. 
