@@ -670,3 +670,61 @@ PTable<-function(PVal, alpha=c(0.05,0.01, 0.005, 0.001,0.0005, 0.0001,0.00005, 0
 
 }
 
+
+	
+	
+ScoreTest_Get_X1 = function(X1){
+  
+  qr1<-qr(X1)
+  q1<-ncol(X1)
+  if(qr1$rank < q1){
+    
+    X1.svd<-svd(X1)
+    X1 = X1.svd$u	#Ques: Why?
+  } 
+  
+  return(X1)
+  
+}
+
+
+ScoreTest_NULL_Model = function(formula, data ){
+  
+  mod = lm(formula, data=data)
+  X1<-model.matrix(formula,data=data)
+  X1<-ScoreTest_Get_X1(X1)
+  
+  glmfit= glm(formula, data=data, family = "binomial")
+  mu = glmfit$fitted.values
+  
+  V = mu*(1-mu)
+  res = glmfit$y- mu
+  n1<-length(res)
+  
+  #
+  XV = t(X1 * V)
+  XVX_inv= solve(t(X1)%*%(X1 * V))
+  XXVX_inv= X1 %*% XVX_inv   
+  
+  re<-list(y=glmfit$y, mu=mu, res=res, V=V, X1=X1, XV=XV, XXVX_inv =XXVX_inv, glmfit=glmfit)
+  return(re)
+  
+}
+
+
+SPA_ER_pval <- function(tempdat, G, q, stat.qtemp, mu, g, Cutoff=2) {
+	if (stat.qtemp > Cutoff^2) {
+		if (sum(G)<10){ #ER
+			obj <- SKAT_Null_Model(y~., out_type="D", Adjustment=FALSE, data=tempdat)
+			temp_binary=SKATBinary(as.matrix(G),obj, method.bin="Hybrid")
+			#p_temp=c(temp_binary$p.value,temp_binary$p.value.resampling)
+			p_temp <- temp_binary$p.value
+		} else { #MAC>=10, no resampling
+			p_temp0 = SPAtest:::Saddle_Prob(q, mu=mu, g=g, Cutoff=2,alpha=5*10^-8)$p.value
+			if (p_temp0!=0){p_temp<-p_temp0} else{p_temp<- -2}
+		}
+	updated.pval <- p_temp} else {
+	updated.pval <- -1	
+	} #end of if (stat.qtemp > Cutoff^2)
+	return(updated.pval)
+}
