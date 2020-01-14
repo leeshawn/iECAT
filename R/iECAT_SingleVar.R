@@ -673,7 +673,7 @@ PTable<-function(PVal, alpha=c(0.05,0.01, 0.005, 0.001,0.0005, 0.0001,0.00005, 0
 
 	
 	
-ScoreTest_Get_X1 = function(X1){
+ScoreTest_Get_X1 <- function(X1){
   
   qr1<-qr(X1)
   q1<-ncol(X1)
@@ -688,7 +688,7 @@ ScoreTest_Get_X1 = function(X1){
 }
 
 
-ScoreTest_NULL_Model = function(formula, data ){
+ScoreTest_NULL_Model <- function(formula, data ){
   
   mod = lm(formula, data=data)
   X1<-model.matrix(formula,data=data)
