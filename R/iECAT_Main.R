@@ -406,13 +406,13 @@ SingleVar_Score_iECAT <- function(Z, Y, X, internal.indicator, method, MAF.adjus
 	if (sum(A3)==0){
 		stop("Detected monomorphism in controls, unable to use external controls!")
 	}else{
-		re<- iECAT_SingleVar_Score_kernel(G, Y, X, Null.internal, Null.all, Null.IvE, A3, method, MAF.adjust)
+		re<- SingleVar_Score_iECAT_kernel(G, Y, X, Null.internal, Null.all, Null.IvE, A3, method, MAF.adjust)
 	}#end of monomorphism check
 }
 
 
 
-iECAT_SingleVar_Score_kernel<- function(G, Y, X, Null.internal, Null.all, Null.IvE, A3, method, MAF.adjust, env = parent.frame()){
+SingleVar_Score_iECAT_kernel<- function(G, Y, X, Null.internal, Null.all, Null.IvE, A3, method, MAF.adjust, env = parent.frame()){
 	
 	#--- Initial calculation of Score and variance ---###
 	Score<-rep(0,3)
