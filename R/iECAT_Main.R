@@ -255,8 +255,7 @@ iECAT_Work<-function(Z, obj, tbl.external.all, weights.beta=c(1,25), weights = N
 
 
 
-
-iECAT_SingleVar_Score<-function(Z, Y, X, internal.indicator){
+iECAT_SingleVar_Score<-function(Z, Y, X, internal.indicator, method, MAF.adjust){
 	if(ncol(cbind(Z)) > 1){
 		stop("Z should be a vector or a matrix with one column!")
 	}
@@ -265,6 +264,99 @@ iECAT_SingleVar_Score<-function(Z, Y, X, internal.indicator){
 		stop("Need indicator of internval vs external sources for all samples!")
 	}
 	
+	#--- Choice of method ---#
+	if (method=="Internal") {
+		if (MAF.adjust==TRUE) {print("MAF adjustment not applicable, default to FALSE")}
+		re<- SingleVar_Score_internal(Z, Y, X, internal.indicator)
+	} else if (method=="Naive") { #"Naive"
+		if (MAF.adjust==TRUE) {print("MAF adjustment not applicable, default to FALSE")}
+		re<- SingleVar_Score_naive(Z, Y, X, internal.indicator)
+	} else {
+		re<- SingleVar_Score_iECAT(Z, Y, X, internal.indicator, method, MAF.adjust)
+	}
+	
+	return(re)
+
+
+}
+
+
+
+SingleVar_Score_internal<- function(Z, Y, X, internal.indicator){
+	#--- Get index ---#
+	idx.internal<- which(internal.indicator==1)
+
+	#--- Create obj ---#
+	data<- data.frame(cbind(Y, X))
+	G<- Z[idx.internal]
+	
+	dat.null<-model.frame(Y~., data=data, na.action = na.pass)
+	# there is an issue if only one column exists in dat.null
+	if(ncol(dat.null)==1){
+    	dat.null$add_one_column = 1
+	}
+
+	
+	Null.internal<-ScoreTest_NULL_Model(Y~., data=as.data.frame(dat.null[idx.internal,]) )
+	
+	#--- Testing ---#
+	A1<- (G[idx.internal]  -  Null.internal$XXVX_inv %*%  (Null.internal$XV %*% G[idx.internal]))[,1]
+	S1<- sum(A1 * Null.internal$res)
+	Var1 <- sum(A1 *(G[idx.internal] * Null.internal$V) )
+	
+	#--- SPA and ER calibration and update variance ---#
+	S1.q <- sum(A1*(Null.internal$res + Null.internal$mu))/sqrt(sum(G[idx.internal]))
+	g1 <- A1/sqrt(sum(G[idx.internal]))
+	mu.internal <- sum(Null.internal$mu * g1)
+	var.internal <- sum(Null.internal$mu * (1-Null.internal$mu) *g1^2)
+	stat_S1.q <- (S1.q-mu.internal)^2/var.internal
+	p_S1.q <- pchisq(stat_S1.q, df=1, lower.tail=F)
+	zscore_S1.q <- (S1.q-mu.internal)*sqrt(sum(G[idx.internal]))
+	pnew_S1.q <- SPA_ER_pval(tempdat=as.data.frame(dat.null[idx.internal,]), G=G[idx.internal], q=S1.q, stat.qtemp=stat_S1.q, mu=Null.internal$mu, g=g1)
+	if (pnew_S1.q>0) {Var.spa.S1 <- zscore_S1.q^2/qchisq(pnew_S1.q, 1, ncp = 0, lower.tail = FALSE, log.p = FALSE)} else{Var.spa.S1 <- Var1}
+	
+	p.value<- pchisq(S1^2 / Var.spa.S1, df=1, lower.tail=FALSE)
+	return(list=c(method="Internal only", MAF.adjust=NA, Score=S1, VAR=Var.spa.S1, p.value=p.value))
+}
+
+
+
+SingleVar_Score_naive<- function(Z, Y, X, internal.indicator){
+	#--- Create obj ---#
+	data<- data.frame(cbind(Y, X))
+	G<- Z
+	
+	dat.null<-model.frame(Y~., data=data, na.action = na.pass)
+	# there is an issue if only one column exists in dat.null
+	if(ncol(dat.null)==1){
+    	dat.null$add_one_column = 1
+	}
+	
+	Null.all<-ScoreTest_NULL_Model(Y~., data=dat.null )
+	
+	#--- Testing ---#
+	A2<- (G  -  Null.all$XXVX_inv %*%  (Null.all$XV %*% G))[,1]
+	S2<- sum(A2 * Null.all$res)
+	Var2 <- sum(A2 *(G * Null.all$V) )
+	
+	#--- SPA and ER calibration and update variance ---#
+	S2.q <- sum(A2*(Null.all$res + Null.all$mu))/sqrt(sum(G))
+	g2 <- A2/sqrt(sum(G))
+	mu.all <- sum(Null.all$mu * g2)
+	var.all <- sum(Null.all$mu * (1-Null.all$mu) *g2^2)
+	stat_S2.q <- (S2.q-mu.all)^2/var.all
+	p_S2.q <- pchisq(stat_S2.q, df=1, lower.tail=F)
+	zscore_S2.q <- (S2.q-mu.all)*sqrt(sum(G))
+	pnew_S2.q <- SPA_ER_pval(tempdat=as.data.frame(dat.null), G=G, q=S2.q, stat.qtemp=stat_S2.q, mu=Null.all$mu, g=g2)
+	if (pnew_S2.q>0) {Var.spa.S2 <- zscore_S2.q^2/qchisq(pnew_S2.q, 1, ncp = 0, lower.tail = FALSE, log.p = FALSE)} else{Var.spa.S2 <- Sigma[2,2]}
+	
+	p.value<- pchisq(S2^2 / Var.spa.S2, df=1, lower.tail=FALSE)
+	return(list=c(method="Naive method, no adjustment", MAF.adjust=NA, Score=S2, VAR=Var.spa.S2, p.value=p.value))
+
+}
+
+
+SingleVar_Score_iECAT <- function(Z, Y, X, internal.indicator, method, MAF.adjust){
 	#--- Get index ---#
 	n<- sum(internal.indicator)
 	N<- length(Z)
@@ -282,7 +374,6 @@ iECAT_SingleVar_Score<-function(Z, Y, X, internal.indicator){
 	n3 <- length(idx.external)
 	a <- n*(n2+n3)/(n2*N)
 
-	
 	#--- Create obj ---#
 	data<- data.frame(cbind(Y, X))
 	G<- Z
@@ -314,17 +405,13 @@ iECAT_SingleVar_Score<-function(Z, Y, X, internal.indicator){
 	if (sum(A3)==0){
 		stop("Detected monomorphism in controls, unable to use external controls!")
 	}else{
-		re<- iECAT_SingleVar_Score_kernel(G, Y, X, Null.internal, Null.all, Null.IvE, A3)
+		re<- iECAT_SingleVar_Score_kernel(G, Y, X, Null.internal, Null.all, Null.IvE, A3, method, MAF.adjust)
 	}#end of monomorphism check
-	
-	return(re)
-
-
 }
 
 
 
-iECAT_SingleVar_Score_kernel<- function(G, Y, X, Null.internal, Null.all, Null.IvE, A3, env = parent.frame()){
+iECAT_SingleVar_Score_kernel<- function(G, Y, X, Null.internal, Null.all, Null.IvE, A3, method, MAF.adjust, env = parent.frame()){
 	
 	#--- Initial calculation of Score and variance ---###
 	Score<-rep(0,3)
@@ -391,7 +478,6 @@ iECAT_SingleVar_Score_kernel<- function(G, Y, X, Null.internal, Null.all, Null.I
 	if (pnew_S2.q>0) {Var.spa.S2 <- zscore_S2.q^2/qchisq(pnew_S2.q, 1, ncp = 0, lower.tail = FALSE, log.p = FALSE)} else{Var.spa.S2 <- Sigma[2,2]}
 	if (pnew_S3.q>0) {Var.spa.S3 <- zscore_S3.q^2/qchisq(pnew_S3.q, 1, ncp = 0, lower.tail = FALSE, log.p = FALSE)} else{Var.spa.S3 <- Sigma[3,3]}
 	
-	#--- Calculate weight tau and adjustment using MAF ---#
 	if (pnew_S3.q==0 | (pnew_S3.q<0 & pval.score.IvE<=0)) {
 		tau.spa<-1
 	} else {
@@ -399,17 +485,18 @@ iECAT_SingleVar_Score_kernel<- function(G, Y, X, Null.internal, Null.all, Null.I
 		tau.spa<- tau1.spa/(1+tau1.spa)
 	}
 	
-	tau.spa2<- tau.spa
-	MAF.case<-mean(G[env$idx.internal.case])/2
-	MAF.control<-mean(G[env$idx.internal.control])/2
-	MAF.external<-mean(G[env$idx.external])/2
-	
-	if(MAF.external > MAF.control && MAF.external < MAF.case){
-		tau.spa2<- 0
-	} else if(MAF.external < MAF.control && MAF.external > MAF.case ){
-		tau.spa2<- 0
+	#--- Calculate weight tau and adjustment using MAF ---#
+	if (MAF.adjust==TRUE) {
+		MAF.case<-mean(G[env$idx.internal.case])/2
+		MAF.control<-mean(G[env$idx.internal.control])/2
+		MAF.external<-mean(G[env$idx.external])/2
+		
+		if(MAF.external > MAF.control && MAF.external < MAF.case){
+			tau.spa<- 0
+		} else if(MAF.external < MAF.control && MAF.external > MAF.case ){
+			tau.spa<- 0
+		}
 	}
-	
 	
 	#--- Calculate compound score Sw and its variance ---#
 	Sigma.spa<- Sigma
@@ -418,31 +505,29 @@ iECAT_SingleVar_Score_kernel<- function(G, Y, X, Null.internal, Null.all, Null.I
 	Sigma.spa[1,3] <- Sigma.spa[3,1] <- rhorho*sqrt(Sigma.spa[1,1]*Sigma.spa[3,3])
 	
 	d_tau.spa<-(2*Score[3] * Var.spa.S3)/(Score[3]^2 + Var.spa.S3)^2
-	d_tau.spa2 <- d_tau.spa #new
 	if(tau.spa==1 || tau.spa==0){d_tau.spa=0}
-	if(tau.spa2==1 || tau.spa2==0){d_tau.spa2=0}
 	
 	G_d.spa<-c(a*tau.spa, 1- tau.spa, d_tau.spa * (a*Score[1] - Score[2] ))
-	G_d.spa2<-c(a*tau.spa2, 1- tau.spa2, d_tau.spa2 * (a*Score[1] - Score[2] ))
 	
 	
 	Sw.spa <- tau.spa*a* Score[1] + (1-tau.spa)*Score[2] #new
-	Sw.spa2 <- tau.spa2*a* Score[1] + (1-tau.spa2)*Score[2] #new
 	VARw.spa <- t(G_d.spa) %*% Sigma.spa %*% G_d.spa #new
-	VARw.spa2 <- t(G_d.spa2) %*% Sigma.spa %*% G_d.spa2 #new, test tau2
-	VARw.spa.tau1 <- Var.spa.S1
-	VARw.spa.tau0 <- Var.spa.S2
+
+	#--- Calculate p-value ---#	
+	p.value<- pchisq(Sw.spa^2 / VARw.spa, df=1, lower.tail=FALSE)
+	p.value.tau1<- pchisq(Score[1]^2 / Var.spa.S1, df=1, lower.tail=FALSE)
+	re<- list(c(method="iECAT", MAF.adjust=MAF.adjust, Score=Sw.spa, VAR=VARw.spa, p.value=p.value))
 	
-	#--- Calculate p-value ---#
-	p.value.iECAT<- pchisq(Sw.spa^2 / VARw.spa, df=1, lower.tail=FALSE)
-	p.value.iECAT2<- pchisq(Sw.spa2^2 / VARw.spa2, df=1, lower.tail=FALSE)
-	p.value.internal<- pchisq(Score[1]^2 / Var.spa.S1, df=1, lower.tail=FALSE)
-	p.value.noadj<- pchisq(Score[2]^2 / Var.spa.S2, df=1, lower.tail=FALSE)
+	if (method=="minP") {
+		rhorhorho <- sqrt((env$a*tau.spa+1-tau.spa)*Var.spa.S1/VARw.spa)
+		if (abs(rhorhorho)<=1) {cmat <- matrix(c(1,rhorhorho,rhorhorho,1), nrow=2)} else{cmat <- matrix(c(1,sign(rhorhorho),sign(rhorhorho),1), nrow=2)}
+		Z2 <- qnorm(min(p.value, p.value.tau1)2)
+		p.value <- pmvnorm(lower=c(-Inf,-abs(Z2)), upper=c(-abs(Z2),Inf), mean=c(0,0), corr=cmat)[1] + pmvnorm(lower=c(-abs(Z2),abs(Z2)), upper=c(Inf,Inf), mean=c(0,0), corr=cmat) + pmvnorm(lower=c(abs(Z2),-Inf), upper=c(Inf,abs(Z2)), mean=c(0,0), corr=cmat)[1] + pmvnorm(lower=c(-Inf,-Inf), upper=c(abs(Z2),-abs(Z2)), mean=c(0,0), corr=cmat)[1]
+		re<- list(c(method="iECAT minP", MAF.adjust=MAF.adjust, Score=NA, VAR=NA, p.value=p.value))
+	}
 	
-	re<- list(Score.iECAT=Sw.spa, p.value.iECAT=p.value.iECAT, Score.iECAT2=Sw.spa2, p.value.iECAT2=p.value.iECAT2, p.value.internal=p.value.internal, p.value.noadj=p.value.noadj)
 	return(re)
 }
-
 
 
 
