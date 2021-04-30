@@ -522,7 +522,7 @@ SingleVar_Score_iECAT_kernel<- function(G, Y, X, Null.internal, Null.all, Null.I
 	if (method=="iECATminP") {
 		rhorhorho <- sqrt((env$a*tau.spa+1-tau.spa)*Var.spa.S1/VARw.spa)
 		if (abs(rhorhorho)<=1) {cmat <- matrix(c(1,rhorhorho,rhorhorho,1), nrow=2)} else{cmat <- matrix(c(1,sign(rhorhorho),sign(rhorhorho),1), nrow=2)}
-		Z2 <- qnorm(min(p.value, p.value.tau1)2)
+		Z2 <- qnorm(min(p.value, p.value.tau1)/2)
 		p.value <- pmvnorm(lower=c(-Inf,-abs(Z2)), upper=c(-abs(Z2),Inf), mean=c(0,0), corr=cmat)[1] + pmvnorm(lower=c(-abs(Z2),abs(Z2)), upper=c(Inf,Inf), mean=c(0,0), corr=cmat) + pmvnorm(lower=c(abs(Z2),-Inf), upper=c(Inf,abs(Z2)), mean=c(0,0), corr=cmat)[1] + pmvnorm(lower=c(-Inf,-Inf), upper=c(abs(Z2),-abs(Z2)), mean=c(0,0), corr=cmat)[1]
 		re<- list(c(method="iECAT minP", MAF.adjust=MAF.adjust, Score=NA, VAR=NA, p.value=p.value))
 	}
